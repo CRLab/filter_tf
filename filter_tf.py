@@ -16,19 +16,19 @@ class TfFilter():
         listener = tf.TransformListener()
         br = tf.TransformBroadcaster()
 
-
-
-        rospy.Subscriber("/table_detector/tablePose", geometry_msgs.msg.Vector3, self.callback)
+        rospy.Subscriber("/table_detector/tablePose", geometry_msgs.msg.Vector3, self.table_pose_update_cb)
 
         self.z_vec_raw = None
         self.z_vec = None
         filtered_trans = None
         filtered_rot = None
+
+        camera_frame = rospy.get_param("frame_id")
         
         rate = rospy.Rate(10.0)
         while not rospy.is_shutdown():
             try:
-                (trans,rot) = listener.lookupTransform('/camera_rgb_optical_frame', '/world_raw', rospy.Time(0))
+                (trans,rot) = listener.lookupTransform(camera_frame, '/world_raw', rospy.Time(0))
             except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
                 continue
                 
@@ -78,15 +78,21 @@ class TfFilter():
                              rot,
                              rospy.Time.now(),
                              "/world",
-                             "/camera_rgb_optical_frame")
+                             camera_frame)
             rate.sleep()
 
 
 
 
-    def callback(self, msg):
+    def table_pose_update_cb(self, msg):
+        #new observation of z direction from detected table.
         self.z_vec_raw = (msg.x, msg.y, msg.z)
-        self.z_vec = .9 * self.z_vec + 0.1 * np.array(self.z_vec_raw)
+
+        if self.z_vec is not None:
+            self.z_vec = .9 * self.z_vec + 0.1 * np.array(self.z_vec_raw)
+        #we have not detected a checkerboard yet., this will only maybe be hit on startup
+        else:
+            self.z_vec = np.array(self.z_vec_raw)
 
 if __name__ == '__main__':
     filter = TfFilter()
