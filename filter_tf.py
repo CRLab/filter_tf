@@ -11,88 +11,57 @@ import tf_conversions
 class TfFilter():
 
     def __init__(self):
-        rospy.init_node('tf_world_filter')
+        rospy.init_node('tf_filter')
+        self.observed_frame = rospy.get_param("observed_frame") #/world_raw
+        self.filtered_frame = rospy.get_param("filtered_frame") #/world
+        self.local_frame = rospy.get_param("local_frame") #camera or kinect2 optical frames
 
-        listener = tf.TransformListener()
-        br = tf.TransformBroadcaster()
+        self.tf_listener = tf.TransformListener()
+        self.tf_broadcaster = tf.TransformBroadcaster()
 
-        rospy.Subscriber("/table_detector/tablePose", geometry_msgs.msg.Vector3, self.table_pose_update_cb)
+        self.filtered_trans = None
+        self.filtered_rot = None
+        self.rate = rospy.Rate(10.0)
 
-        self.z_vec_raw = None
-        self.z_vec = None
-        filtered_trans = None
-        filtered_rot = None
 
-        camera_frame = rospy.get_param("frame_id")
+    def run(self):
+        rospy.loginfo("Starting publish of transform")
         
-        rate = rospy.Rate(10.0)
         while not rospy.is_shutdown():
             try:
-                (trans,rot) = listener.lookupTransform(camera_frame, '/world_raw', rospy.Time(0))
-            except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
+                (trans,rot) = self.tf_listener.lookupTransform(self.local_frame, self.observed_frame, rospy.Time(0))
+            except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException, tf.Exception), e:
+                rospy.logerr("Failed to lookup transform for %s to %s" % (self.local_frame, self.observed_frame))
+                if self.filtered_rot is None:
+                    #If we have never observed a valid transform, we cannot publish anything
+                    continue
+                if self.filtered_rot:
+                    #We could not receive a new but publishing the previous value of this transform
+                    self.tf_broadcaster.sendTransform(self.filtered_trans,
+                                                      self.filtered_rot,
+                                                      rospy.Time.now(),
+                                                      self.filtered_frame,
+                                                      self.local_frame)
+                    self.rate.sleep()
                 continue
-                
-            if filtered_rot is None:
-                filtered_rot = rot
-            if filtered_trans is None:
-                filtered_trans = np.array(trans)
 
-            filtered_rot = tf.transformations.quaternion_slerp(filtered_rot, rot, 0.01)
-            filtered_trans = .99 * filtered_trans + 0.01 * np.array(trans)
+            #If this is the first time we have received a valid transformation, define filtered_rot + filtered_trans
+            if self.filtered_rot is None:
+                self.filtered_rot = rot
+            if self.filtered_trans is None:
+                self.filtered_trans = np.array(trans)
 
-            if self.z_vec_raw is None:
-                r = tf_conversions.Rotation.Quaternion(*filtered_rot)
-                frame = tf_conversions.Frame(r, tf_conversions.Vector(0,0,0))
-                mat = tf_conversions.toMatrix(frame)
-                self.z_vec_raw = mat[0:3, 2]
-                self.z_vec = self.z_vec_raw
+            #Actual filtering of the transformation between the observed and published transform
+            self.filtered_rot = tf.transformations.quaternion_slerp(self.filtered_rot, rot, 0.01)
+            self.filtered_trans = .99 * self.filtered_trans + 0.01 * np.array(trans)
 
-
-            r = tf_conversions.Rotation.Quaternion(*filtered_rot)
-            frame = tf_conversions.Frame(r, tf_conversions.Vector(0,0,0))
-            mat = tf_conversions.toMatrix(frame)
-            x = mat[0:3, 0]
-            n = self.z_vec
-            unit_n = n / np.linalg.norm(n)
-            z_new = unit_n
-            x_new = x - np.dot(x, unit_n)*unit_n
-            x_new = x_new / np.linalg.norm(x_new)
-            y_new = np.cross(z_new, x_new)
-
-            rot_new = np.zeros((4, 4))
-            rot_new[3, 3] = 1.0
-
-            rot_new[0:3, 0] = x_new
-            rot_new[0:3, 1] = y_new
-            rot_new[0:3, 2] = z_new
-
-            rot_new[0:3, 3] = filtered_trans
-
-            frame = tf_conversions.fromMatrix(rot_new)
-            pose_msg = tf_conversions.toMsg(frame)
-
-            trans = filtered_trans
-            rot = np.array([pose_msg.orientation.x, pose_msg.orientation.y, pose_msg.orientation.z, pose_msg.orientation.w]);
-            
-            br.sendTransform(trans,
-                             rot,
-                             rospy.Time.now(),
-                             "/world",
-                             camera_frame)
-            rate.sleep()
-
-
-
-
-    def table_pose_update_cb(self, msg):
-        #new observation of z direction from detected table.
-        self.z_vec_raw = (msg.x, msg.y, msg.z)
-
-        if self.z_vec is not None:
-            self.z_vec = .9 * self.z_vec + 0.1 * np.array(self.z_vec_raw)
-        #we have not detected a checkerboard yet., this will only maybe be hit on startup
-        else:
-            self.z_vec = np.array(self.z_vec_raw)
+            self.tf_broadcaster.sendTransform(self.filtered_trans,
+                                              self.filtered_rot,
+                                              rospy.Time.now(),
+                                              self.filtered_frame,
+                                              self.local_frame)
+            self.rate.sleep()
 
 if __name__ == '__main__':
     filter = TfFilter()
+    filter.run()

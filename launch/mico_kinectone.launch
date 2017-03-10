@@ -1,0 +1,9 @@
+<launch>
+    <group ns="filter_tf_mico_kinectone">
+        <param name="observed_frame" value="/world_raw" />
+        <param name="filtered_frame" value="/world" />
+        <param name="local_frame" value="/kinect2_rgb_optical_frame" />
+
+        <node name="filter_tf_kinectone" pkg="filter_tf" type="filter_tf.py" respawn="false"/>
+    </group>
+</launch>
