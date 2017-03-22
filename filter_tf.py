@@ -35,7 +35,7 @@ class TfFilter():
                 if self.filtered_rot is None:
                     #If we have never observed a valid transform, we cannot publish anything
                     continue
-                if self.filtered_rot:
+                else:
                     #We could not receive a new but publishing the previous value of this transform
                     self.tf_broadcaster.sendTransform(self.filtered_trans,
                                                       self.filtered_rot,
