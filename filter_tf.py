@@ -12,9 +12,9 @@ class TfFilter():
 
     def __init__(self):
         rospy.init_node('tf_filter')
-        self.observed_frame = rospy.get_param("observed_frame") #/world_raw
+        self.observed_frame = rospy.get_param("observed_frame") #/ar_marker_8 or _9
         self.filtered_frame = rospy.get_param("filtered_frame") #/world
-        self.local_frame = rospy.get_param("local_frame") #camera or kinect2 optical frames
+        self.local_frame = rospy.get_param("local_frame") #camera_link or kinect2_link
 
         self.tf_listener = tf.TransformListener()
         self.tf_broadcaster = tf.TransformBroadcaster()
@@ -29,7 +29,7 @@ class TfFilter():
         
         while not rospy.is_shutdown():
             try:
-                (trans,rot) = self.tf_listener.lookupTransform(self.local_frame, self.observed_frame, rospy.Time(0))
+                (trans,rot) = self.tf_listener.lookupTransform( self.observed_frame, self.local_frame, rospy.Time(0))
             except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException, tf.Exception), e:
                 rospy.logerr("Failed to lookup transform for %s to %s" % (self.local_frame, self.observed_frame))
                 if self.filtered_rot is None:
@@ -40,8 +40,8 @@ class TfFilter():
                     self.tf_broadcaster.sendTransform(self.filtered_trans,
                                                       self.filtered_rot,
                                                       rospy.Time.now(),
-                                                      self.filtered_frame,
-                                                      self.local_frame)
+                                                      self.local_frame,
+                                                      self.filtered_frame)
                     self.rate.sleep()
                 continue
 
@@ -58,8 +58,8 @@ class TfFilter():
             self.tf_broadcaster.sendTransform(self.filtered_trans,
                                               self.filtered_rot,
                                               rospy.Time.now(),
-                                              self.filtered_frame,
-                                              self.local_frame)
+                                              self.local_frame,
+                                              self.filtered_frame)
             self.rate.sleep()
 
 if __name__ == '__main__':

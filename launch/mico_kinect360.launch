@@ -1,8 +1,9 @@
 <launch>
     <group ns="filter_tf_mico_kinect360">
-        <param name="observed_frame" value="/world_raw" />
+        <param name="observed_frame" value="/kinect360_ar_marker_8" />
         <param name="filtered_frame" value="/world" />
-        <param name="local_frame" value="/camera_rgb_optical_frame" />
+        <param name="local_frame" value="/camera_link" />
+
         <node name="filter_tf_kinect360" pkg="filter_tf" type="filter_tf.py" respawn="false"/>
     </group>
 </launch>
