@@ -26,12 +26,9 @@ class TfFilter():
         while not rospy.is_shutdown():
             try:
                 (world_raw_trans, world_raw_rot) = listener.lookupTransform("/map", '/world_raw', rospy.Time(0))
-                (base_link_trans, base_link_rot) = listener.lookupTransform(camera_frame, '/base_link', rospy.Time(0))
+                (base_link_trans, base_link_rot) = listener.lookupTransform("/map", '/base_link', rospy.Time(0))
             except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
-                if filtered_rot is None:
-                    pass
-                    #load_default rot and trans from a saved file:
-                if filtered_rot:
+                if filtered_rot is not None:
                     br.sendTransform(world_raw_trans,
                              world_raw_rot,
                              rospy.Time.now(),
