@@ -34,6 +34,7 @@ class TfFilter():
                 rospy.logerr("Failed to lookup transform for %s to %s" % (self.local_frame, self.observed_frame))
                 if self.filtered_rot is None:
                     #If we have never observed a valid transform, we cannot publish anything
+                    self.rate.sleep()
                     continue
                 else:
                     #We could not receive a new but publishing the previous value of this transform
