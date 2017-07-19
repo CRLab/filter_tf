@@ -1,67 +1,108 @@
-#!/usr/bin/env python  
+#!/usr/bin/env python
 
 import rospy
-import math
 import tf
-import geometry_msgs.msg
 import numpy as np
-import tf_conversions
+import argparse
 
 
 class TfFilter():
 
     def __init__(self):
+
         rospy.init_node('tf_filter')
-        self.observed_frame = rospy.get_param("observed_frame") #/ar_marker_8 or _9
-        self.filtered_frame = rospy.get_param("filtered_frame") #/world
-        self.local_frame = rospy.get_param("local_frame") #camera_link or kinect2_link
+
+        parser = argparse.ArgumentParser(
+            description="""Provide a filtered version of a desired transform. Ex. we have raw
+            observations of Table1 frame in the camera frame of reference,
+            this node will produce a transform from
+            camera_frame to Table1_filtered.""")
+        parser.add_argument(
+            'child_frame',
+            metavar='child_frame',
+            type=str,
+            help="""This is the raw child frame we are observing.
+            Ex: Table1,
+            raw observations of transform from camera to table frame""")
+        parser.add_argument(
+            'parent_frame',
+            metavar='parent_frame',
+            type=str,
+            help="""This is the parent frame
+            for the transform that we want to filter.""")
+
+        args = parser.parse_args()
+
+        # ex Table1
+        self.observed_child_frame = args.child_frame
+        # ex Table1_filtered
+        self.filtered_child_frame = args.child_frame + "_filtered"
+        # kinect2_rgb_optical_frame (frame in which Table1 was observed from)
+        self.parent_frame = args.parent_frame
 
         self.tf_listener = tf.TransformListener()
         self.tf_broadcaster = tf.TransformBroadcaster()
 
+        # This is a moving average of the translational component
+        # of the transform we are filtering
         self.filtered_trans = None
+        # This is a moving average of the rotational component
+        # of the transform we are filtering
         self.filtered_rot = None
+        # This is the rate that our tranform will be published at
         self.rate = rospy.Rate(10.0)
 
+    def _observe_raw_tf(self):
+        raw_translation = None
+        raw_rotation = None
+        try:
+            (raw_translation, raw_rotation) = self.tf_listener.lookupTransform(
+                self.observed_child_frame, self.parent_frame, rospy.Time(0))
+        except (tf.LookupException, tf.ConnectivityException,
+                tf.ExtrapolationException, tf.Exception), e:
+            rospy.logerr("Failed to lookup transform for %s to %s" %
+                         (self.parent_frame, self.observed_child_frame))
+            
+        return raw_translation, raw_rotation
+        
+    def _update_filtered_tf(self, raw_translation, raw_rotation):
+        # If this is the first time we have received a valid
+        # transformation, define filtered_rot + filtered_trans
+        if self.filtered_rot is None:
+            self.filtered_rot = raw_rotation
+        if self.filtered_trans is None:
+            self.filtered_trans = np.array(raw_translation)
+
+        # Actual filtering of the transformation
+        # between the observed and published transform
+        self.filtered_rot = tf.transformations.quaternion_slerp(
+            self.filtered_rot, raw_rotation, 0.01)
+        self.filtered_trans = .99 * self.filtered_trans + 0.01 * np.array(
+            raw_translation)
+
+    def _broadcast_filtered_tf(self):
+        if self.filtered_trans and self.filtered_rot:
+            self.tf_broadcaster.sendTransform(
+                self.filtered_trans, self.filtered_rot,
+                rospy.Time.now(), self.parent_frame, self.filtered_child_frame)
 
     def run(self):
         rospy.loginfo("Starting publish of transform")
-        
+
         while not rospy.is_shutdown():
-            try:
-                (trans,rot) = self.tf_listener.lookupTransform( self.observed_frame, self.local_frame, rospy.Time(0))
-            except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException, tf.Exception), e:
-                rospy.logerr("Failed to lookup transform for %s to %s" % (self.local_frame, self.observed_frame))
-                if self.filtered_rot is None:
-                    #If we have never observed a valid transform, we cannot publish anything
-                    self.rate.sleep()
-                    continue
-                else:
-                    #We could not receive a new but publishing the previous value of this transform
-                    self.tf_broadcaster.sendTransform(self.filtered_trans,
-                                                      self.filtered_rot,
-                                                      rospy.Time.now(),
-                                                      self.local_frame,
-                                                      self.filtered_frame)
-                    self.rate.sleep()
-                continue
+            # get a new observation of the raw transform if available
+            # returns None, None if tf timeout
+            raw_translation, raw_rotation = self._observe_raw_tf()
 
-            #If this is the first time we have received a valid transformation, define filtered_rot + filtered_trans
-            if self.filtered_rot is None:
-                self.filtered_rot = rot
-            if self.filtered_trans is None:
-                self.filtered_trans = np.array(trans)
+            # update our filtered version of the transform
+            if raw_translation and raw_rotation:
+                self._update_filtered_tf(raw_translation, raw_rotation)
 
-            #Actual filtering of the transformation between the observed and published transform
-            self.filtered_rot = tf.transformations.quaternion_slerp(self.filtered_rot, rot, 0.01)
-            self.filtered_trans = .99 * self.filtered_trans + 0.01 * np.array(trans)
-
-            self.tf_broadcaster.sendTransform(self.filtered_trans,
-                                              self.filtered_rot,
-                                              rospy.Time.now(),
-                                              self.local_frame,
-                                              self.filtered_frame)
+            # broadcast the filtered transform
+            self._broadcast_filtered_tf()
+            
             self.rate.sleep()
+
 
 if __name__ == '__main__':
     filter = TfFilter()
