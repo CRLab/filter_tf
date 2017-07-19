@@ -2,9 +2,9 @@
 Simple Utility Node to filter a specified ROS TF transform
 
 ## Args
-child_frame: raw observation of a reference frame ex /ar_marker_8
+child_frame: raw observation of a reference frame ex: /ar_marker_8
 
-parent_frame: frame in which the observation occurs. 
+parent_frame: frame in which the observation occurs. ex: /kinect2_link
 
 This node will then publish a tf from parent_frame to child_frame_filtered. 
 
