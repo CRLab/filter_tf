@@ -6,7 +6,7 @@ child_frame: raw observation of a reference frame ex: /ar_marker_8
 
 parent_frame: frame in which the observation occurs. ex: /kinect2_link
 
-This node will then publish a tf from parent_frame to child_frame_filtered. 
+This node will then publish a tf from parent_frame to child_frame_filtered. ex: /ar_marker_8_filtered 
 
 ## Usage:
 From command line:
