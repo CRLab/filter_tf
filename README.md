@@ -1,9 +1,15 @@
 # filter_tf
 Simple Utility Node to filter a specified ROS TF transform
 
+## Args
+child_frame: raw observation of a reference frame ex /ar_marker_8
+
+parent_frame: frame in which the observation occurs. 
+
+This node will then publish a tf from parent_frame to child_frame_filtered. 
 
 ## Usage:
-args are child_frame, parent_frame. From command line:
+From command line:
 ```
 rosrun filter_tf filter_tf.py /ar_marker_8 /kinect2_link
 ```
