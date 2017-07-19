@@ -1,9 +1,0 @@
-<launch>
-    <group ns="filter_tf_fetch">
-        <param name="observed_frame" value="/ar_marker_8" />
-        <param name="filtered_frame" value="/world" />
-        <param name="local_frame" value="/map" />
-
-        <node name="filter_tf" pkg="filter_tf" type="filter_tf.py" respawn="false"/>
-    </group>
-</launch>
