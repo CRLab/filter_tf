@@ -95,9 +95,6 @@ class TfFilter():
         if self.filtered_trans is None or self.filtered_rot is None:
             return
 
-        print "We are broadcasting a TF:" + str(self.filtered_trans) + " " + str(self.filtered_rot)
-        print "Parent: " + str(self.parent_frame)
-        print "child: " + str(self.filtered_child_frame)
         self.tf_broadcaster.sendTransform(
             self.filtered_trans, self.filtered_rot,
             rospy.Time.now(), self.filtered_child_frame, self.parent_frame)
