@@ -68,7 +68,7 @@ class TfFilter():
         raw_rotation = None
         try:
             (raw_translation, raw_rotation) = self.tf_listener.lookupTransform(
-                self.observed_child_frame, self.parent_frame, rospy.Time(0))
+                self.parent_frame, self.observed_child_frame,  rospy.Time(0))
         except (tf.LookupException, tf.ConnectivityException,
                 tf.ExtrapolationException, tf.Exception), e:
             rospy.logerr("Failed to lookup transform for %s to %s" %
@@ -92,10 +92,15 @@ class TfFilter():
             raw_translation)
 
     def _broadcast_filtered_tf(self):
-        if self.filtered_trans and self.filtered_rot:
-            self.tf_broadcaster.sendTransform(
-                self.filtered_trans, self.filtered_rot,
-                rospy.Time.now(), self.parent_frame, self.filtered_child_frame)
+        if self.filtered_trans is None or self.filtered_rot is None:
+            return
+
+        print "We are broadcasting a TF:" + str(self.filtered_trans) + " " + str(self.filtered_rot)
+        print "Parent: " + str(self.parent_frame)
+        print "child: " + str(self.filtered_child_frame)
+        self.tf_broadcaster.sendTransform(
+            self.filtered_trans, self.filtered_rot,
+            rospy.Time.now(), self.filtered_child_frame, self.parent_frame)
 
     def run(self):
         rospy.loginfo("Starting publish of transform")
