@@ -4,16 +4,15 @@ import rospy
 import tf
 import numpy as np
 import argparse
+import sys
 
 
 class TfFilter():
-
     def __init__(self):
 
-        rospy.init_node('tf_filter')
-
         parser = argparse.ArgumentParser(
-            description="""Provide a filtered version of a desired transform. Ex. we have raw
+            description=
+            """Provide a filtered version of a desired transform. Ex. we have raw
             observations of Table1 frame in the camera frame of reference,
             this node will produce a transform from
             camera_frame to Table1_filtered.""")
@@ -30,8 +29,20 @@ class TfFilter():
             type=str,
             help="""This is the parent frame
             for the transform that we want to filter.""")
+        parser.add_argument(
+            '--name',
+            type=str,
+            default="pc_filter",
+            help="""This is the ros node name""")
 
-        args = parser.parse_args()
+        # old args: /abc /xyz __name:=node_name __log:=my_logfile.log]
+        # new args: /abc /xyz --name node_name --log my_logfile.log]
+        args_list = " ".join(sys.argv[1:]).replace("__", "--").replace(
+            ":=", " ").split(" ")
+
+        args, _ = parser.parse_known_args(args_list)
+        
+        rospy.init_node(args.name)
 
         # ex Table1
         self.observed_child_frame = args.child_frame
@@ -62,9 +73,9 @@ class TfFilter():
                 tf.ExtrapolationException, tf.Exception), e:
             rospy.logerr("Failed to lookup transform for %s to %s" %
                          (self.parent_frame, self.observed_child_frame))
-            
+
         return raw_translation, raw_rotation
-        
+
     def _update_filtered_tf(self, raw_translation, raw_rotation):
         # If this is the first time we have received a valid
         # transformation, define filtered_rot + filtered_trans
@@ -100,7 +111,7 @@ class TfFilter():
 
             # broadcast the filtered transform
             self._broadcast_filtered_tf()
-            
+
             self.rate.sleep()
 
 
