@@ -30,6 +30,12 @@ class TfFilter():
             help="""This is the parent frame
             for the transform that we want to filter.""")
         parser.add_argument(
+            'min_observation_count',
+            metavar='min_observation_count',
+            type=str,
+            help="""The number of required observations before
+            we begin filtering the transform.""")
+        parser.add_argument(
             '--name',
             type=str,
             default="pc_filter",
@@ -43,6 +49,8 @@ class TfFilter():
         args, _ = parser.parse_known_args(args_list)
         
         rospy.init_node(args.name)
+
+        self.min_observation_count = args.min_observation_count
 
         # ex Table1
         self.observed_child_frame = args.child_frame
@@ -62,6 +70,10 @@ class TfFilter():
         self.filtered_rot = None
         # This is the rate that our tranform will be published at
         self.rate = rospy.Rate(10.0)
+        # number of times the raw transform has been observed
+        self.observation_count = 0
+       
+       
 
     def _observe_raw_tf(self):
         raw_translation = None
@@ -69,6 +81,8 @@ class TfFilter():
         try:
             (raw_translation, raw_rotation) = self.tf_listener.lookupTransform(
                 self.parent_frame, self.observed_child_frame,  rospy.Time(0))
+            if self.observation_count < self.min_observation_count:
+                self.observation_count += 1
         except (tf.LookupException, tf.ConnectivityException,
                 tf.ExtrapolationException, tf.Exception), e:
             rospy.logerr("Failed to lookup transform for %s to %s" %
@@ -79,9 +93,9 @@ class TfFilter():
     def _update_filtered_tf(self, raw_translation, raw_rotation):
         # If this is the first time we have received a valid
         # transformation, define filtered_rot + filtered_trans
-        if self.filtered_rot is None:
+        if self.filtered_rot is None or self.observation_count < 20:
             self.filtered_rot = raw_rotation
-        if self.filtered_trans is None:
+        if self.filtered_trans is None or self.observation_count < 20:
             self.filtered_trans = np.array(raw_translation)
 
         # Actual filtering of the transformation
