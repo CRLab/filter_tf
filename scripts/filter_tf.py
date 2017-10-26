@@ -30,6 +30,13 @@ class TfFilter():
             help="""This is the parent frame
             for the transform that we want to filter.""")
         parser.add_argument(
+            '--destination_frame',
+            metavar='destination_frame',
+            type=str,
+            help="""This is the name of the frame we will publish""",
+            default=""
+        )
+        parser.add_argument(
             '--name',
             type=str,
             default="pc_filter",
@@ -47,7 +54,11 @@ class TfFilter():
         # ex Table1
         self.observed_child_frame = args.child_frame
         # ex Table1_filtered
-        self.filtered_child_frame = args.child_frame + "_filtered"
+        if args.destination_frame != "":
+            self.filtered_child_frame = args.destination_frame
+        else:
+            self.filtered_child_frame = args.child_frame + "_filtered"
+
         # kinect2_rgb_optical_frame (frame in which Table1 was observed from)
         self.parent_frame = args.parent_frame
 
