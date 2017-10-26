@@ -67,6 +67,7 @@ class TfFilter():
         # ex Table1
         self.observed_child_frame = args.child_frame
         # ex Table1_filtered
+
         if args.destination_frame != "":
             self.filtered_child_frame = args.destination_frame
         else:
